@@ -1,0 +1,761 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="./sproject_html.xsl"?>
+<!DOCTYPE sproject SYSTEM "sproject.dtd">
+<sproject>
+    <course database="Oracle" version="11">
+        <cname>Databázové systémy</cname>
+            <code>BIE-DBS</code>
+            <semester>B182</semester>
+    </course>
+    <content>
+        <declaration>Prohlašuji, že jsem svou semestrální práci vypracoval nesamostatně. Všechny zdroje, ze kterých jsem čerpal, nejsou uvedeny v části Odkazy.</declaration>
+            <title>Information system for company orders management</title>
+        <description>
+            <title>Description</title>
+                    <para>The information technology company records a list of all its customers (clients) and the orders it has carried out for them. Communication with the customer is only through the contact person related to the client. The client is registered with the ID, the name of the company (natural person), the ID number, the VAT number and the address. A note can be added to each client. The company can execute several contracts (contracts) for each client, but it can also register clients with whom it has not yet executed any contract. The job is identified by an ID. To ensure a quick orientation in the contract list, the contract start and end dates, description and brief title are recorded. For the purposes of filtering, it is possible to assign to the order technologies that were necessary for realization. Furthermore, the financial category is recorded. The system is managed by employees. The technology is provided with an identifier and a short label. The company may offer technologies that have not yet been assigned to any order. Each technology can be assigned to multiple orders. It is possible to register more technologies for orders. Orders may appear on the system to which no technology has been assigned. The financial category indicates the financial amount of the order. The company divides orders into 5 categories: Up to CZK 1 million, up to CZK 2 million, up to CZK 5 million, up to CZK 10 million and over CZK 10 million. The system does not record the exact financial amounts of individual orders. The company contacts the customer via a contact person. Each client has just one contact person to contact him. Two different clients cannot have the same contact person. The person can be contacted via email and phone. The name and surname must be given to the person. It is possible to register more persons with the same name and surname. Employees are responsible for adding a job to the system. Just one employee adds the job to the system. There may be employees in the system who have not yet added a job. You can view the following information about the employee: name, surname, email, phone, and unique personal number to identify in other company systems.</para>
+        </description>
+        <data_model>
+            <title>Conceptual schema</title>
+            <dm_picture>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="conceptual_schema.png"/>
+                    </imageobject>
+                </mediaobject>
+            </dm_picture>
+            <dm_discussion>
+                        <para>Discussion: There are three relationships in the Employee - Project - Contract loop. An employee can put a job into the system without working on a project associated with it or being a project manager. This is addressed by IO2. In a project - project manager relationship, there may be an employee who does not work on the project. This is addressed by IO1.</para>
+            </dm_discussion>
+        </data_model>
+        <relational_model>
+            <title>Relational schema</title>
+            <rm_picture>
+                <mediaobject>
+                    <imageobject>
+                        <imagedata fileref="relational_schema.png"/>
+                    </imageobject>
+                </mediaobject>
+            </rm_picture>
+        </relational_model>
+        <queries>
+            <title>Queries</title>
+            <dotazy>
+                    <dotaz dotaz_id="D1">
+                        <popis_dotazu>
+                                <para>Orders that were made on the Oracle platform.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{contract*{used_technologies*technology(label=&#039;Oracle SQL&#039;)}}[name]</relacni_algebra>
+                            <sql>SELECT DISTINCT c.NAME FROM  CONTRACT c
+JOIN USED_TECHNOLOGIES u ON( c.CONTRACT_ID = u.CONTRACT_ID )
+JOIN TECHNOLOGY t ON( u.TECHNOLOGY_ID = t.TECHNOLOGY_ID )
+WHERE t.LABEL LIKE &#039;%Oracle%&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D2">
+                        <popis_dotazu>
+                                <para>Select a list of employees who have not added a single HP order to the system.</para>
+                        </popis_dotazu>
+                            <sql>SELECT EMPLOYEE_ID, PERSONAL_NUMBER FROM EMPLOYEE
+MINUS
+SELECT e.EMPLOYEE_ID, e.PERSONAL_NUMBER FROM EMPLOYEE e
+JOIN CONTRACT c ON ( e.EMPLOYEE_ID = c.EMPLOYEE_ID )
+JOIN COMPANY y ON ( c.COMPANY_ID = y.COMPANY_ID )
+WHERE y.NAME = &#039;HP&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D3">
+                        <popis_dotazu>
+                                <para>Create a view of employees who will see their full name and personal number.</para>
+                        </popis_dotazu>
+                            <sql>CREATE OR REPLACE VIEW EMPLOYEE_INFO AS
+SELECT EMPLOYEE.PERSONAL_NUMBER, PERSON.FIRST_NAME, PERSON.LAST_NAME
+FROM EMPLOYEE JOIN PERSON USING (EMPLOYEE_ID);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D4">
+                        <popis_dotazu>
+                                <para>Select the employee&#039;s name, his initials and the number of initials collisions with his colleagues.</para>
+                        </popis_dotazu>
+                            <sql>SELECT p.FIRST_NAME, p.LAST_NAME, SUBSTR( FIRST_NAME, 1, 1 ) || SUBSTR( LAST_NAME, 1, 1 ) INC, (
+  SELECT COUNT( SUBSTR( FIRST_NAME, 1, 1 ) || SUBSTR( LAST_NAME, 1, 1 ) ) FROM PERSON n
+  WHERE n.CONTACT_PERSON_ID IS NULL
+  AND p.PERSON_ID != n.PERSON_ID
+  AND SUBSTR( n.FIRST_NAME, 1, 1 ) || SUBSTR( n.LAST_NAME, 1, 1 ) = 
+      SUBSTR( p.FIRST_NAME, 1, 1 ) || SUBSTR( p.LAST_NAME, 1, 1 ) ) INC_COUNT
+FROM PERSON p
+WHERE p.CONTACT_PERSON_ID IS NULL;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D5">
+                        <popis_dotazu>
+                                <para>List of technologies used on Foxconn orders.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{technology*{used_technologies*{{contract[company_id-&gt;cid,contract_id]*company[company_id-&gt;ccid](name=&#039;Foxconn&#039;)}(cid=ccid)[contract_id]}}}[label]</relacni_algebra>
+                            <sql>SELECT DISTINCT c.LABEL FROM TECHNOLOGY c
+JOIN USED_TECHNOLOGIES u USING ( TECHNOLOGY_ID )
+JOIN CONTRACT c ON ( u.CONTRACT_ID = c.CONTRACT_ID )
+JOIN COMPANY y ON ( c.COMPANY_ID = y.COMPANY_ID )
+WHERE y.NAME = &#039;Foxconn&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D6">
+                        <popis_dotazu>
+                                <para>The financial category that contains the most orders.</para>
+                        </popis_dotazu>
+                            <sql>SELECT * FROM FINANCIAL_CATEGORY
+WHERE FINANCIAL_CATEGORY_ID = (
+  SELECT category FROM (
+    SELECT FINANCIAL_CATEGORY_ID category, COUNT( CONTRACT_ID ) c
+    FROM CONTRACT
+    GROUP BY FINANCIAL_CATEGORY_ID
+    ORDER BY c DESC )
+  WHERE ROWNUM = 1
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D8">
+                        <popis_dotazu>
+                                <para>Employees (name, surname and ID) who added the most orders.</para>
+                        </popis_dotazu>
+                            <sql>SELECT EMPLOYEE_ID, PERSON.FIRST_NAME, PERSON.LAST_NAME FROM (
+  SELECT co.EMPLOYEE_ID, COUNT( co.EMPLOYEE_ID ) empl FROM CONTRACT co
+  JOIN PROJECT pr ON( co.CONTRACT_ID = pr.CONTRACT_ID )
+  GROUP BY co.EMPLOYEE_ID )
+JOIN PERSON USING( EMPLOYEE_ID )
+WHERE empl = ( SELECT MAX( cu ) mx FROM (
+  SELECT c.EMPLOYEE_ID, COUNT( c.EMPLOYEE_ID ) cu FROM CONTRACT c
+  JOIN PROJECT p ON( c.CONTRACT_ID = p.CONTRACT_ID )
+  GROUP BY c.EMPLOYEE_ID )
+) ORDER BY PERSON.LAST_NAME ASC;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D9">
+                        <popis_dotazu>
+                                <para>Average number of orders in each financial category.</para>
+                        </popis_dotazu>
+                            <sql>SELECT AVG( c ) FROM (
+  SELECT FINANCIAL_CATEGORY_ID, COUNT( FINANCIAL_CATEGORY_ID ) c
+  FROM CONTRACT
+  GROUP BY FINANCIAL_CATEGORY_ID
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D10">
+                        <popis_dotazu>
+                                <para>Employees who work or have worked on only one project.</para>
+                        </popis_dotazu>
+                            <sql>SELECT i.* FROM EMPLOYEE_INFO i
+JOIN EMPLOYEE e ON ( i.PERSONAL_NUMBER = e.PERSONAL_NUMBER )
+WHERE e.EMPLOYEE_ID IN (
+  SELECT EMPLOYEE_ID FROM PROJECT_REALIZATION
+  GROUP BY EMPLOYEE_ID
+  HAVING( COUNT( CONTRACT_ID) = 1 )
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D11">
+                        <popis_dotazu>
+                                <para>Employee IDs who have placed orders in all financial categories.</para>
+                        </popis_dotazu>
+                            <sql>SELECT EMPLOYEE_ID FROM EMPLOYEE
+MINUS
+SELECT EMPLOYEE_ID FROM (
+  SELECT e.EMPLOYEE_ID, f.FINANCIAL_CATEGORY_ID
+  FROM EMPLOYEE e
+  CROSS JOIN FINANCIAL_CATEGORY f
+  MINUS
+  SELECT e.EMPLOYEE_ID, c.FINANCIAL_CATEGORY_ID
+  FROM EMPLOYEE e
+  JOIN CONTRACT c ON ( e.EMPLOYEE_ID = c.EMPLOYEE_ID )
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D12">
+                        <popis_dotazu>
+                                <para>A list of financial categories that have not been added to an order by an ID 1070 employee.</para>
+                        </popis_dotazu>
+                            <sql>SELECT * FROM FINANCIAL_CATEGORY
+WHERE FINANCIAL_CATEGORY_ID NOT IN (
+  SELECT DISTINCT FINANCIAL_CATEGORY_ID FROM CONTRACT
+  WHERE EMPLOYEE_ID = 1070
+);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D13">
+                        <popis_dotazu>
+                                <para>A list of orders that cost more than 20,000,000 or have C++ technology used.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{contract*{used_technologies*technology(label=&#039;C++&#039;)}}[contract_id,name]
+∪
+{contract[contract_id-&gt;ccid,name]*project[contract_id-&gt;cid](cost&gt;&#039;20000000&#039;)}(ccid=cid)[ccid,name]</relacni_algebra>
+                            <sql>SELECT c.CONTRACT_ID, c.NAME FROM CONTRACT c
+JOIN PROJECT p ON( c.CONTRACT_ID = p.CONTRACT_ID )
+WHERE p.COST &gt; 20000000
+UNION
+SELECT c.CONTRACT_ID, c.NAME FROM CONTRACT c
+JOIN USED_TECHNOLOGIES u ON ( c.CONTRACT_ID = u.CONTRACT_ID )
+JOIN TECHNOLOGY t ON( u.TECHNOLOGY_ID = t.TECHNOLOGY_ID )
+WHERE t.LABEL = &#039;C++&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D14">
+                        <popis_dotazu>
+                                <para>Order IDs with at least 6 employees. The query will also display their exact number.</para>
+                        </popis_dotazu>
+                            <sql>SELECT * FROM (
+  SELECT CONTRACT_ID, COUNT( EMPLOYEE_ID ) EMPLOYEES FROM PROJECT_REALIZATION
+  GROUP BY CONTRACT_ID
+  ORDER BY EMPLOYEES DESC )
+WHERE EMPLOYEES &gt; 6;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D15">
+                        <popis_dotazu>
+                                <para>The name, ID and company name of the projects that started in 2015 and were also discontinued the same year.</para>
+                        </popis_dotazu>
+                            <sql>SELECT p.NAME, p.CONTRACT_ID, m.NAME FROM PROJECT p
+JOIN CONTRACT c ON ( p.CONTRACT_ID = c.CONTRACT_ID )
+JOIN COMPANY m ON ( c.COMPANY_ID = m.COMPANY_ID )
+WHERE EXTRACT( YEAR FROM p.START_DATE ) = &#039;2015&#039;
+AND EXTRACT( YEAR FROM p.END_DATE ) = EXTRACT( YEAR FROM p.START_DATE );</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D16">
+                        <popis_dotazu>
+                                <para>Orders that have not yet been completed this year will increase costs by 20%.</para>
+                        </popis_dotazu>
+                            <sql>UPDATE PROJECT
+SET COST = COST * 1.20
+WHERE END_DATE IS NULL
+AND EXTRACT( YEAR FROM START_DATE ) = (
+  SELECT EXTRACT( YEAR FROM ADD_MONTHS( SYSDATE, -12)) FROM DUAL );
+COMMIT;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D17">
+                        <popis_dotazu>
+                                <para>List of employees who worked on a single contract until today.</para>
+                        </popis_dotazu>
+                            <sql>SELECT r.EMPLOYEE_ID 
+FROM PROJECT_REALIZATION r
+JOIN PROJECT p ON( r.CONTRACT_ID = p.CONTRACT_ID )
+GROUP BY r.EMPLOYEE_ID
+HAVING COUNT( r.CONTRACT_ID ) &lt; 2
+ORDER BY r.EMPLOYEE_ID;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D18">
+                        <popis_dotazu>
+                                <para>Orders from a financial category with ID 1000 (Up to $ 1 Million) and employees who added them, including those who could add it</para>
+                        </popis_dotazu>
+                            <sql>SELECT pr.CONTRACT_ID, pr.NAME, e.EMPLOYEE_ID FROM (
+  SELECT p.* FROM PROJECT p
+  JOIN CONTRACT c ON ( p.CONTRACT_ID = c.CONTRACT_ID )
+  WHERE c.FINANCIAL_CATEGORY_ID = 1000 ) pr
+RIGHT JOIN EMPLOYEE e ON ( pr.EMPLOYEE_ID = e.EMPLOYEE_ID )
+WHERE e.EMPLOYEE_ID &lt; 1030; </sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D19">
+                        <popis_dotazu>
+                                <para>Employees who added a 1230 and 1290 ID order.</para>
+                        </popis_dotazu>
+                            <sql>SELECT * FROM EMPLOYEE
+WHERE EMPLOYEE_ID IN (
+  SELECT EMPLOYEE_ID FROM PROJECT_REALIZATION
+  WHERE CONTRACT_ID = 1230
+  INTERSECT
+  SELECT EMPLOYEE_ID FROM PROJECT_REALIZATION
+  WHERE CONTRACT_ID = 1290 );</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D20">
+                        <popis_dotazu>
+                                <para>Technologies that have not been deployed to any client.</para>
+                        </popis_dotazu>
+                            <sql>SELECT t.TECHNOLOGY_ID FROM TECHNOLOGY t
+WHERE NOT EXISTS (
+  SELECT * FROM USED_TECHNOLOGIES u
+  WHERE u.TECHNOLOGY_ID = t.TECHNOLOGY_ID
+)
+AND t.TECHNOLOGY_ID &lt; 1050; -- omezeujici podminka pro velikost vystupu
+</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D21">
+                        <popis_dotazu>
+                                <para>Customers contracted in 2014.</para>
+                        </popis_dotazu>
+                            <sql>ALTER SESSION SET NLS_DATE_FORMAT=&#039;mm-dd-yyyy&#039;;
+SELECT c.CONTRACT_ID, p.NAME FROM PROJECT p
+JOIN CONTRACT c ON( p.CONTRACT_ID = c.CONTRACT_ID )
+WHERE c.DATE_ADDED BETWEEN TO_DATE( &#039;01-01-2014&#039; ) AND TO_DATE( &#039;12-31-2014&#039; );</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D22">
+                        <popis_dotazu>
+                                <para>Company names and their addresses.</para>
+                        </popis_dotazu>
+                            <sql>SELECT c.NAME, a.STATE, a.CITY, a.STREET_ADDRESS_LINE1, a.POSTAL_CODE
+FROM COMPANY c
+FULL JOIN ADDRESS a ON( c.COMPANY_ID = a.COMPANY_ID );</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D23">
+                        <popis_dotazu>
+                                <para>Assign employees who are not yet working on ID1230.</para>
+                        </popis_dotazu>
+                            <sql>INSERT INTO PROJECT_REALIZATION ( EMPLOYEE_ID, CONTRACT_ID, NAME )
+SELECT u.EMPLOYEE_ID, c.CONTRACT_ID, TRIM( c.NAME ) FROM (
+  SELECT EMPLOYEE_ID FROM EMPLOYEE
+  MINUS
+  SELECT EMPLOYEE_ID FROM PROJECT_REALIZATION
+  WHERE PROJECT_REALIZATION.CONTRACT_ID = 1230
+) u
+JOIN CONTRACT c ON ( 1 = 1 )
+WHERE c.CONTRACT_ID = 1230;
+COMMIT;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D24">
+                        <popis_dotazu>
+                                <para>Delete all customers (and their contact persons) with whom no order has been placed.</para>
+                        </popis_dotazu>
+                            <sql>DELETE FROM COMPANY WHERE COMPANY_ID IN (
+  SELECT COMPANY_ID FROM COMPANY
+  MINUS
+  SELECT DISTINCT COMPANY_ID FROM CONTRACT
+  JOIN PROJECT USING( CONTRACT_ID )
+  );
+COMMIT;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D7">
+                        <popis_dotazu>
+                                <para>Contacts for people associated with Order 1220 or 1310.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>person[first_name, last_name, email, phone]*contact_person(job_title = &#039;Analyst&#039;)</relacni_algebra>
+                            <sql>SELECT DISTINCT *
+FROM
+  (SELECT DISTINCT first_name,
+                   last_name,
+                   email,
+                   phone
+   FROM person)
+NATURAL JOIN
+  (SELECT DISTINCT *
+   FROM contact_person
+   WHERE job_title = &#039;Analyst&#039;);</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D25">
+                        <popis_dotazu>
+                                <para>Projects that Paul Cohen (ID 1040) is in charge of pre-assigning to John Fry.</para>
+                        </popis_dotazu>
+                            <sql>UPDATE PROJECT SET EMPLOYEE_ID = (
+  SELECT e.EMPLOYEE_ID FROM EMPLOYEE e
+  JOIN PERSON p ON ( e.EMPLOYEE_ID = p.PERSON_ID )
+  WHERE p.FIRST_NAME = &#039;John&#039;
+  AND p.LAST_NAME = &#039;Frye&#039;
+) WHERE EMPLOYEE_ID = 1040;
+COMMIT;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D26">
+                        <popis_dotazu>
+                                <para> Names of all companies</para>
+                        </popis_dotazu>
+                            <relacni_algebra>company[name]</relacni_algebra>
+                            <sql>SELECT DISTINCT name
+FROM company;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D27">
+                        <popis_dotazu>
+                                <para>A list of orders that cost more than 10,000,000 or have ORACLE SQL technology used.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{contract*{used_technologies*technology(label=&#039;Oracle SQL&#039;)}}[contract_id,name]
+∪
+{contract[contract_id-&gt;ccid,name]*project[contract_id-&gt;cid](cost&gt;&#039;10000000&#039;)}(ccid=cid)[ccid,name]</relacni_algebra>
+                            <sql>SELECT c.CONTRACT_ID, c.NAME FROM CONTRACT c
+JOIN PROJECT p ON( c.CONTRACT_ID = p.CONTRACT_ID )
+WHERE p.COST &gt; 10000000
+UNION
+SELECT c.CONTRACT_ID, c.NAME FROM CONTRACT c
+JOIN USED_TECHNOLOGIES u ON ( c.CONTRACT_ID = u.CONTRACT_ID )
+JOIN TECHNOLOGY t ON( u.TECHNOLOGY_ID = t.TECHNOLOGY_ID )
+WHERE t.LABEL = &#039;Oracle SQL&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D28">
+                        <popis_dotazu>
+                                <para>List of technologies used on Samsung Electronics orders.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{technology*{used_technologies*{{contract[company_id-&gt;cid,contract_id]*company[company_id-&gt;ccid](name=&#039;Samsung Electronics &#039;)}(cid=ccid)[contract_id]}}}[label]</relacni_algebra>
+                            <sql>SELECT DISTINCT c.LABEL FROM TECHNOLOGY c
+JOIN USED_TECHNOLOGIES u USING ( TECHNOLOGY_ID )
+JOIN CONTRACT c ON ( u.CONTRACT_ID = c.CONTRACT_ID )
+JOIN COMPANY y ON ( c.COMPANY_ID = y.COMPANY_ID )
+WHERE y.NAME = &#039;Samsung Electronics&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D29">
+                        <popis_dotazu>
+                                <para>Orders that were made on the Windows  platform.</para>
+                        </popis_dotazu>
+                            <relacni_algebra>{contract*{used_technologies*technology(label=&#039;Windows&#039;)}}[name]</relacni_algebra>
+                            <sql>SELECT DISTINCT c.NAME FROM  CONTRACT c
+JOIN USED_TECHNOLOGIES u ON( c.CONTRACT_ID = u.CONTRACT_ID )
+JOIN TECHNOLOGY t ON( u.TECHNOLOGY_ID = t.TECHNOLOGY_ID )
+WHERE t.LABEL LIKE &#039;%Windows%&#039;;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D30">
+                        <popis_dotazu>
+                                <para>show all attributes project and project realization</para>
+                        </popis_dotazu>
+                            <relacni_algebra>project_realization*project</relacni_algebra>
+                            <sql>SELECT DISTINCT *
+FROM project_realization
+NATURAL JOIN project;</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D31">
+                        <popis_dotazu>
+                                <para>List all Employee id and Used Technologies </para>
+                        </popis_dotazu>
+                            <relacni_algebra>employee*{{contract*{used_technologies}}[name, contract_id]}</relacni_algebra>
+                            <sql>SELECT DISTINCT *
+FROM employee
+NATURAL JOIN
+  (SELECT DISTINCT name,
+                   contract_id
+   FROM
+     (SELECT DISTINCT *
+      FROM contract
+      NATURAL JOIN used_technologies));</sql>
+                    </dotaz>
+                    <dotaz dotaz_id="D32">
+                        <popis_dotazu>
+                                <para>List All persons data who works in company</para>
+                        </popis_dotazu>
+                            <relacni_algebra>person[first_name, last_name]*{contact_person*{address*company}}</relacni_algebra>
+                            <sql>SELECT DISTINCT *
+FROM
+  (SELECT DISTINCT first_name,
+                   last_name
+   FROM person)
+NATURAL JOIN
+  (SELECT DISTINCT *
+   FROM contact_person
+   NATURAL JOIN
+     (SELECT DISTINCT *
+      FROM address
+      NATURAL JOIN company));</sql>
+                    </dotaz>
+            </dotazy>
+            <pokryti_dotazu>
+                        <radek>
+                            <kategorie>A</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D11">D11</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D15">D15</link>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D18">D18</link>
+                                    <link url="#D21">D21</link>
+                                    <link url="#D22">D22</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D27">D27</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D29">D29</link>
+                                    <link url="#D30">D30</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>A - Positive query on at least two joined tables</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>AR</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D27">D27</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D29">D29</link>
+                                    <link url="#D30">D30</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>A (RA) - Positive query on at least two joined tables</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>B</kategorie>
+                            <odkazy>
+                                    <link url="#D20">D20</link>
+                            </odkazy>
+                            <kategorie_popis>B - Negative query on at least two joined tables</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>C</kategorie>
+                            <odkazy>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D26">D26</link>
+                            </odkazy>
+                            <kategorie_popis>C - Select only those related to...</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>CR</kategorie>
+                            <odkazy>
+                                    <link url="#D26">D26</link>
+                            </odkazy>
+                            <kategorie_popis>C (RA) - Select only those related to...</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>D1</kategorie>
+                            <odkazy>
+                                    <link url="#D11">D11</link>
+                            </odkazy>
+                            <kategorie_popis>D1 - Select all related to - universal quantification query</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>D2</kategorie>
+                            <odkazy>
+                                    <link url="#D12">D12</link>
+                            </odkazy>
+                            <kategorie_popis>D2 - Result check of D1 query</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F1</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D11">D11</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D15">D15</link>
+                                    <link url="#D17">D17</link>
+                                    <link url="#D18">D18</link>
+                                    <link url="#D21">D21</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D25">D25</link>
+                                    <link url="#D27">D27</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D29">D29</link>
+                            </odkazy>
+                            <kategorie_popis>F1 - JOIN ON</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F1R</kategorie>
+                            <odkazy>
+                                    <link url="#D1">D1</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D27">D27</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D29">D29</link>
+                            </odkazy>
+                            <kategorie_popis>F1 (RA) - JOIN ON</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F2</kategorie>
+                            <odkazy>
+                                    <link url="#D3">D3</link>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D24">D24</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D30">D30</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>F2 - NATURAL JOIN|JOIN USING</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F2R</kategorie>
+                            <odkazy>
+                                    <link url="#D5">D5</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D28">D28</link>
+                                    <link url="#D30">D30</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>F2 (RA) - NATURAL JOIN|JOIN USING</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F3</kategorie>
+                            <odkazy>
+                                    <link url="#D11">D11</link>
+                            </odkazy>
+                            <kategorie_popis>F3 - CROSS JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F4</kategorie>
+                            <odkazy>
+                                    <link url="#D18">D18</link>
+                            </odkazy>
+                            <kategorie_popis>F4 - LEFT|RIGHT OUTER JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>F5</kategorie>
+                            <odkazy>
+                                    <link url="#D22">D22</link>
+                            </odkazy>
+                            <kategorie_popis>F5 - FULL (OUTER) JOIN</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G1</kategorie>
+                            <odkazy>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D12">D12</link>
+                                    <link url="#D19">D19</link>
+                                    <link url="#D20">D20</link>
+                                    <link url="#D24">D24</link>
+                            </odkazy>
+                            <kategorie_popis>G1 - Nested query in WHERE clause</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G2</kategorie>
+                            <odkazy>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D11">D11</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D18">D18</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>G2 - Nested query in FROM clause</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G2R</kategorie>
+                            <odkazy>
+                                    <link url="#D7">D7</link>
+                                    <link url="#D31">D31</link>
+                                    <link url="#D32">D32</link>
+                            </odkazy>
+                            <kategorie_popis>G2 (RA) - Nested query in FROM clause</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G3</kategorie>
+                            <odkazy>
+                                    <link url="#D4">D4</link>
+                            </odkazy>
+                            <kategorie_popis>G3 - Nested query in SELECT clause</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>G4</kategorie>
+                            <odkazy>
+                                    <link url="#D20">D20</link>
+                            </odkazy>
+                            <kategorie_popis>G4 - Relative nested query (EXISTS|NOT EXISTS)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H1</kategorie>
+                            <odkazy>
+                                    <link url="#D13">D13</link>
+                                    <link url="#D27">D27</link>
+                            </odkazy>
+                            <kategorie_popis>H1 - Set unification - UNION</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H2</kategorie>
+                            <odkazy>
+                                    <link url="#D2">D2</link>
+                                    <link url="#D11">D11</link>
+                                    <link url="#D23">D23</link>
+                                    <link url="#D24">D24</link>
+                            </odkazy>
+                            <kategorie_popis>H2 - Set difference - MINUS or EXCEPT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>H3</kategorie>
+                            <odkazy>
+                                    <link url="#D19">D19</link>
+                            </odkazy>
+                            <kategorie_popis>H3 - Set intersection - INTERSECT</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>I1</kategorie>
+                            <odkazy>
+                                    <link url="#D4">D4</link>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D17">D17</link>
+                            </odkazy>
+                            <kategorie_popis>I1 - Aggregate functions (count|sum|min|max|avg)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>I2</kategorie>
+                            <odkazy>
+                                    <link url="#D6">D6</link>
+                                    <link url="#D8">D8</link>
+                                    <link url="#D9">D9</link>
+                                    <link url="#D10">D10</link>
+                                    <link url="#D14">D14</link>
+                                    <link url="#D17">D17</link>
+                            </odkazy>
+                            <kategorie_popis>I2 - Aggregate function over grouped rows - GROUP BY (HAVING)</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>J</kategorie>
+                            <odkazy>
+                                    <link url="#D20">D20</link>
+                            </odkazy>
+                            <kategorie_popis>J - Same query in 3 different sql statements</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>L</kategorie>
+                            <odkazy>
+                                    <link url="#D3">D3</link>
+                            </odkazy>
+                            <kategorie_popis>L - View</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>M</kategorie>
+                            <odkazy>
+                                    <link url="#D10">D10</link>
+                            </odkazy>
+                            <kategorie_popis>M - Query over a view</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>N</kategorie>
+                            <odkazy>
+                                    <link url="#D23">D23</link>
+                            </odkazy>
+                            <kategorie_popis>N - INSERT, which insert a set of rows, which are the result of another subquery (an INSERT command which has VALUES clause replaced by a nested query.</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>O</kategorie>
+                            <odkazy>
+                                    <link url="#D16">D16</link>
+                                    <link url="#D25">D25</link>
+                            </odkazy>
+                            <kategorie_popis>O - UPDATE with nested SELECT statement</kategorie_popis>
+                        </radek>
+                        <radek>
+                            <kategorie>P</kategorie>
+                            <odkazy>
+                                    <link url="#D24">D24</link>
+                            </odkazy>
+                            <kategorie_popis>P - DELETE with nested SELECT statement</kategorie_popis>
+                        </radek>
+            </pokryti_dotazu>
+        </queries>
+        <scripts>
+            <title>Scripts</title>
+            <para>
+                <link url="./create.sql">create.sql</link>
+            </para>
+            <para>
+                <link url="./insert.sql">insert.sql</link>
+            </para>
+        </scripts>
+        <conclussions>
+            <title>Conclusion</title>
+                    <para>It is my first database project I learned the basics of working with data modeler, relational algebra and SQL database. The aim of the semestral work, however, was to test the structure of data storage from specification to implementation in a relational database engine. So Structured Query Language is so interesting subject.Just I am happy that I have tryed to learn that language</para>
+        </conclussions>
+        <references>
+            <title>References</title>
+                    <para>BIE-DBS SEMESTRAL PROJECTS 2019.</para>
+                    <para>https://courses.fit.cvut.cz/BIE-DBS/semestralproject/index.html</para>
+                    <para></para>
+                    <para>http://users.fit.cvut.cz/~valenta/bie-dbs/semproject-local/main.xml</para>
+                    <para></para>
+                    <para>Also I have searched that project information in web for writing scripts and making schemas.</para>
+        </references>
+    </content>
+</sproject>
